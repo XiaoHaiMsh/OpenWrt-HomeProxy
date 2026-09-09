@@ -596,13 +596,14 @@ return view.extend({
 		so.value('ai_noncn', _('AI Services (Non-Mainland China)'));
 		so.value('custom', _('Custom'));
 		so.rmempty = false;
-		so.editable = true;
-		/* Grid column: for a custom rule, show the user-given service name
-		 * directly in the "Service" column instead of the generic "Custom"
-		 * label, so the table stays a compact 2-column-of-interest view
-		 * (Service / Node) instead of needing a separate always-visible
-		 * "Service name" column (which would show blank/"Custom" noise on
-		 * every built-in-service row — custom_service_name is modalonly). */
+		/* Deliberately NOT so.editable = true here: GridSection renders an
+		 * editable option as its live input widget in the cell (the plain
+		 * dropdown, always showing just "Custom" for every custom rule),
+		 * which silently bypasses textvalue() below — LuCI only calls
+		 * textvalue() for the readonly-text cell preview. Since telling
+		 * custom rules apart in the grid matters more than being able to
+		 * switch the service inline, this column is readonly-preview only;
+		 * changing the service still works via the row's edit button. */
 		so.textvalue = function(section_id) {
 			if (this.cfgvalue(section_id) === 'custom') {
 				const name = (uci.get('homeproxy', section_id, 'custom_service_name') || '').trim();
