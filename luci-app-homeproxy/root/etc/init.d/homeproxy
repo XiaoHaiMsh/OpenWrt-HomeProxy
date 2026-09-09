@@ -111,6 +111,17 @@ start_service() {
 	if [ "$main_node" = "core_only" ]; then
 		local core_profile core_conf_path
 
+		# Core only 模式下 HomeProxy 自身不接管 DNS，之前"普通模式"残留的
+		# dnsmasq 转发规则（server=127.0.0.1#dns_port）必须在这里主动清理，
+		# 不能依赖 stop_service() 里那套仅在完整 restart（非 reload）时才
+		# 生效的清理逻辑——否则 Apply 触发的 reload 会让 dnsmasq 继续把解析
+		# 转发到一个已经没有对应监听者的端口，导致全网解析失效，直到用户
+		# 手动点击"重启"。
+		if [ -d "$DNSMASQ_DIR" ] || [ -f "$DNSMASQ_DIR/../dnsmasq-homeproxy.conf" ]; then
+			rm -rf "$DNSMASQ_DIR/../dnsmasq-homeproxy.conf" "$DNSMASQ_DIR"
+			/etc/init.d/dnsmasq restart >"/dev/null" 2>&1
+		fi
+
 		config_get core_profile "config" "main_core_profile" ""
 		if [ -z "$core_profile" ]; then
 			log "Error: \"Core only\" is selected but no core config file is chosen."
