@@ -260,7 +260,7 @@ start_service() {
 		cat <<-EOF >> "$dns_new_dir/redirect-dns.conf"
 			no-poll
 			no-resolv
-			server=127.0.0.1#$dns_port
+			server=127.0.0.1
 		EOF
 
 		sync_dnsmasq_dir "$dns_new_dir" "conf-dir=$DNSMASQ_DIR"
@@ -376,9 +376,9 @@ stop_service() {
 		rm -rf "$DNSMASQ_DIR/../dnsmasq-homeproxy.conf" "$DNSMASQ_DIR"
 		/etc/init.d/dnsmasq restart >"/dev/null" 2>&1
 	else
-		# reload 场景：不重启 dnsmasq（避免抖动），仅 SIGHUP 让它清一下
-		# 解析缓存，防止 stop/start 之间短暂的解析结果在 reload 后仍被
-		# 缓存命中而复用。
+
+
+
 		killall -SIGHUP dnsmasq >"/dev/null" 2>&1
 	fi
 

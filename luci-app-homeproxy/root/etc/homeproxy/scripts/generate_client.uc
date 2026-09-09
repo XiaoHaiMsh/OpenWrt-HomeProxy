@@ -26,11 +26,11 @@ const uciinfra = 'infra',
 const ucinode = 'node';
 const uciapprule = 'app_rule';
 
-/* Proxy Rules remote sources — MetaCubeX/meta-rules-dat (sing branch), same
- * project already used for geoip-cn/geosite-cn elsewhere in this file.
- * Each entry may carry a `domain` (geosite) and/or `ip` (geoip) rule-set; both
- * are applied (OR'd) for that service when present, so e.g. Telegram matches
- * either its domains or its known IP ranges. */
+
+
+
+
+
 const app_rule_urls = {
 	youtube: {
 		domain: 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/youtube.srs'
@@ -463,15 +463,15 @@ if (!isEmpty(main_node)) {
 				server: 'main-dns'
 			});
 	}
-	/* The bypass_mainland_china automatic-classification DNS rules (below)
-	 * are deliberately NOT pushed here. They must rank behind direct-domain/
-	 * proxy-domain (manual lists) AND behind Proxy Rules (app_rule, per-
-	 * service overrides) in config.dns.rules, mirroring their priority in
-	 * config.route.rules (direct-domain > proxy-domain > app_rule > automatic
-	 * baseline). Since Proxy Rules are only built later — inside the
-	 * config.route section further down, where app_rule's own dns.rules
-	 * entries are pushed — this block is pushed there instead, after that
-	 * loop finishes, so it stays last. See the matching comment below. */
+	
+
+
+
+
+
+
+
+
 }
 
 config.inbounds = [];
@@ -807,7 +807,7 @@ if (!isEmpty(main_node)) {
 			outbound: 'main-out'
 		});
 
-	/* Proxy Rules (per-service overrides): not available in Global mode. */
+	
 	if (routing_mode !== 'global') {
 		const has_tag = (tag) => {
 			for (let ob in config.outbounds)
@@ -840,14 +840,14 @@ if (!isEmpty(main_node)) {
 
 			let effective_outbound = 'main-out';
 			const node = cfg.node || 'main-out';
-			/* Stable per-rule id used for outbound/rule_set tags: the service name
-			 * itself for real services (already unique — dedup validated in the UI).
-			 * For custom rules, prefix with the user-given "Service name" (if any)
-			 * so the generated outbound/rule_set tags are readable in the sing-box
-			 * dashboard/panel (e.g. 'app-MyService-cfg26e93d-out' instead of an
-			 * opaque 'app-custom-cfg26e93d-out'); the anonymous UCI section id is
-			 * always appended too, since it's the only thing guaranteed unique —
-			 * two custom rules may share the same display name. */
+			
+
+
+
+
+
+
+
 			const custom_name = trim(cfg.custom_service_name || '');
 			const rule_label = (cfg.source === 'custom')
 				? ((!isEmpty(custom_name) ? custom_name : 'custom') + '-' + cfg['.name'])
@@ -880,10 +880,10 @@ if (!isEmpty(main_node)) {
 			}
 
 			const rs_tag = 'app-rule-' + rule_label;
-			/* DNS side of the same override: Direct resolves like the rest of
-			 * the domestic/default path, anything proxied (main node, urltest
-			 * group, or a specific node) resolves through main-dns — mirrors
-			 * how direct-domain/proxy-domain already pick a resolver above. */
+			
+
+
+
 			const dns_server = (node === 'direct-out') ? (china_dns_enabled ? 'china-dns' : 'default-dns') : 'main-dns';
 
 			if (cfg.source === 'custom') {
@@ -893,12 +893,12 @@ if (!isEmpty(main_node)) {
 					const custom_domains = trim(cfg.custom_domains || '');
 					if (isEmpty(custom_domains))
 						return;
-					/* Filter out blank interior lines: an empty string in
-					 * domain_keyword matches every domain as a substring, so
-					 * a stray blank line (e.g. from copy-paste, or a habitual
-					 * spacer line) would silently turn this rule into a
-					 * catch-all — hijacking all traffic, including domestic,
-					 * to whatever outbound this rule points at. */
+					
+
+
+
+
+
 					let custom_domain_list = [];
 					for (let d in split(custom_domains, /[\r\n]/)) {
 						d = trim(d);
@@ -930,16 +930,16 @@ if (!isEmpty(main_node)) {
 					return;
 				}
 
-				/* custom_mode is 'url_domain' / 'url_ip' / 'url_mixed': one or
-				 * more directly-supplied remote rule-set links (.srs = binary,
-				 * .json = source), same mechanism as the built-in services
-				 * below. A DNS rule that references a rule-set containing only
-				 * ip_cidr data (e.g. a geoip set) is rejected by sing-box at
-				 * startup when legacy DNS mode is disabled — see sing-box's
-				 * migration notes ("Migrate address filter fields to response
-				 * matching") — so exactly like the built-in services, only the
-				 * domain URLs are ever wired into the DNS rule; the ip URLs
-				 * are route-only. */
+				
+
+
+
+
+
+
+
+
+
 				const collect_urls = (list) => {
 					const out = [];
 					for (let u in normalizeList(list)) {
@@ -998,15 +998,15 @@ if (!isEmpty(main_node)) {
 				return;
 			}
 
-			/* Unknown/stale source (e.g. left over from a removed option) — skip
-			 * rather than emit a route rule pointing at a rule_set that's never defined. */
+			
+
 			const urls = app_rule_urls[cfg.source];
 			if (isEmpty(urls))
 				return;
 
-			/* Built-in services may ship a domain (geosite) set, an ip (geoip)
-			 * set, or both; emit whichever exist and OR them together in a
-			 * single route rule via a rule_set array. */
+			
+
+
 			let rs_tags = [];
 			let domain_tag = null;
 
@@ -1043,8 +1043,8 @@ if (!isEmpty(main_node)) {
 				outbound: effective_outbound
 			});
 
-			/* Only the domain (geosite) rule_set is meaningful for a DNS
-			 * query — a geoip set has nothing to match pre-resolution. */
+			
+
 			if (domain_tag)
 				push(config.dns.rules, {
 					rule_set: domain_tag,
@@ -1054,12 +1054,12 @@ if (!isEmpty(main_node)) {
 		});
 	}
 
-	/* Automatic bypass_mainland_china DNS classification, ranked behind
-	 * direct-domain/proxy-domain and Proxy Rules (app_rule) above — see the
-	 * comment left in its place in the config.dns section. Pushed here,
-	 * after the app_rule loop, so it lands last in config.dns.rules and
-	 * can't shadow a manual or Proxy-Rules override for a domain it also
-	 * happens to classify. */
+	
+
+
+
+
+
 	if (routing_mode === 'bypass_mainland_china') {
 		push(config.dns.rules, {
 			rule_set: 'geosite-cn',

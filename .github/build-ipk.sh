@@ -172,7 +172,7 @@ PYEOF
 	echo -e "/etc/config/homeproxy" > "$TEMP_PKG_DIR/CONTROL/conffiles"
 
 	cat > "$TEMP_PKG_DIR/CONTROL/postinst" <<-EOF
-	#!/bin/sh
+
 	[ "\${IPKG_NO_SCRIPT}" = "1" ] && exit 0
 	[ -s \${IPKG_INSTROOT}/lib/functions.sh ] || exit 0
 	. \${IPKG_INSTROOT}/lib/functions.sh
