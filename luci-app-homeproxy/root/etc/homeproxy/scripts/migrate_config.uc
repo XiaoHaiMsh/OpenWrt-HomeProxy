@@ -205,9 +205,9 @@ uci.foreach(uciconfig, uciroutingrule, (cfg) => {
 	}
 });
 
-
-
-
+/* "Rule name" was dropped from the Proxy Rules UI — outbound/rule-set tags
+ * for custom rules are now always derived from the (already-unique) anonymous
+ * section id instead, so any leftover custom_name value is just dead data. */
 uci.foreach(uciconfig, uciapprule, (cfg) => {
 	if (!isEmpty(cfg.custom_name))
 		uci.delete(uciconfig, cfg['.name'], 'custom_name');
@@ -217,11 +217,11 @@ const current_proxy_mode = uci.get(uciconfig, ucimain, 'proxy_mode');
 if (current_proxy_mode === 'redirect_tun' || current_proxy_mode === 'redirect_tproxy')
 	uci.set(uciconfig, ucimain, 'proxy_mode', 'tun');
 
-
-
-
-
-
+/* "GFWList" and "Only proxy mainland China" routing modes were removed along
+ * with the Redirect/TProxy proxy mode (and the china_ip4/china_ip6/china_list/
+ * gfw_list resources that only fed them); fall existing configs back to the
+ * closest surviving mode so they don't end up pointing at an option that no
+ * longer exists in the UI. */
 const current_routing_mode = uci.get(uciconfig, ucimain, 'routing_mode');
 if (current_routing_mode === 'gfwlist' || current_routing_mode === 'proxy_mainland_china')
 	uci.set(uciconfig, ucimain, 'routing_mode', 'bypass_mainland_china');
