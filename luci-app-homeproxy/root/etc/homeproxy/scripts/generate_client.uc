@@ -463,36 +463,15 @@ if (!isEmpty(main_node)) {
 				server: 'main-dns'
 			});
 	}
-
-	if (routing_mode === 'bypass_mainland_china') {
-		push(config.dns.rules, {
-			rule_set: 'geosite-cn',
-			action: 'route',
-			server: 'china-dns'
-		});
-		push(config.dns.rules, {
-			rule_set: 'geosite-noncn',
-			invert: true,
-			action: 'evaluate',
-			server: 'china-dns'
-		});
-		push(config.dns.rules, {
-			type: 'logical',
-			mode: 'and',
-			rules: [
-				{
-					rule_set: 'geosite-noncn',
-					invert: true
-				},
-				{
-					rule_set: 'geoip-cn',
-					match_response: true
-				}
-			],
-			action: 'route',
-			server: 'china-dns'
-		});
-	}
+	/* The bypass_mainland_china automatic-classification DNS rules (below)
+	 * are deliberately NOT pushed here. They must rank behind direct-domain/
+	 * proxy-domain (manual lists) AND behind Proxy Rules (app_rule, per-
+	 * service overrides) in config.dns.rules, mirroring their priority in
+	 * config.route.rules (direct-domain > proxy-domain > app_rule > automatic
+	 * baseline). Since Proxy Rules are only built later — inside the
+	 * config.route section further down, where app_rule's own dns.rules
+	 * entries are pushed — this block is pushed there instead, after that
+	 * loop finishes, so it stays last. See the matching comment below. */
 }
 
 config.inbounds = [];
@@ -1072,6 +1051,42 @@ if (!isEmpty(main_node)) {
 					action: 'route',
 					server: dns_server
 				});
+		});
+	}
+
+	/* Automatic bypass_mainland_china DNS classification, ranked behind
+	 * direct-domain/proxy-domain and Proxy Rules (app_rule) above — see the
+	 * comment left in its place in the config.dns section. Pushed here,
+	 * after the app_rule loop, so it lands last in config.dns.rules and
+	 * can't shadow a manual or Proxy-Rules override for a domain it also
+	 * happens to classify. */
+	if (routing_mode === 'bypass_mainland_china') {
+		push(config.dns.rules, {
+			rule_set: 'geosite-cn',
+			action: 'route',
+			server: 'china-dns'
+		});
+		push(config.dns.rules, {
+			rule_set: 'geosite-noncn',
+			invert: true,
+			action: 'evaluate',
+			server: 'china-dns'
+		});
+		push(config.dns.rules, {
+			type: 'logical',
+			mode: 'and',
+			rules: [
+				{
+					rule_set: 'geosite-noncn',
+					invert: true
+				},
+				{
+					rule_set: 'geoip-cn',
+					match_response: true
+				}
+			],
+			action: 'route',
+			server: 'china-dns'
 		});
 	}
 
