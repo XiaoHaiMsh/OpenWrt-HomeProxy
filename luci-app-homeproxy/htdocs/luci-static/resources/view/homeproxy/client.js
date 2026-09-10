@@ -555,6 +555,7 @@ return view.extend({
 		o.rmempty = false;
 		o.depends({'main_node': /^((?!core_only).)+$/});
 
+		/* Proxy Rules start (per-service routing overrides) */
 		s.tab('app_rules', _('Proxy Rules'));
 		o = s.taboption('app_rules', form.SectionValue, '_app_rules', form.GridSection, 'app_rule');
 		o.depends({'routing_mode': 'bypass_mainland_china', 'proxy_mode': 'tun'});
@@ -570,6 +571,15 @@ return view.extend({
 		so.rmempty = false;
 		so.editable = true;
 
+		/* Name column: sits ahead of Service/Node in the grid as a plain,
+		 * read-only label (no .editable — unlike the columns below, this one
+		 * can't be changed inline). It's still a real, editable field inside
+		 * the Edit modal (form.Value + depends), so the only way to change it
+		 * is to open a rule for editing. Only meaningful for Custom rules —
+		 * built-in services already have a fixed, self-explanatory name. This
+		 * same name feeds into generate_client.uc's outbound/rule_set tag
+		 * naming, so it also shows up as the strategy-group name in the
+		 * sing-box panel/dashboard (e.g. "MyService" instead of "Custom"). */
 		so = ss.option(form.Value, 'custom_service_name', _('Service name'));
 		so.placeholder = _('e.g. My Service');
 		so.depends('source', 'custom');
@@ -586,7 +596,14 @@ return view.extend({
 		so.value('ai_noncn', _('AI Services (Non-Mainland China)'));
 		so.value('custom', _('Custom'));
 		so.rmempty = false;
-
+		/* Deliberately NOT so.editable = true here: GridSection renders an
+		 * editable option as its live input widget in the cell (the plain
+		 * dropdown, always showing just "Custom" for every custom rule),
+		 * which silently bypasses textvalue() below — LuCI only calls
+		 * textvalue() for the readonly-text cell preview. Since telling
+		 * custom rules apart in the grid matters more than being able to
+		 * switch the service inline, this column is readonly-preview only;
+		 * changing the service still works via the row's edit button. */
 		so.textvalue = function(section_id) {
 			if (this.cfgvalue(section_id) === 'custom') {
 				const name = (uci.get('homeproxy', section_id, 'custom_service_name') || '').trim();
@@ -695,6 +712,7 @@ return view.extend({
 		so.placeholder = '150';
 		so.depends('node', 'urltest');
 		so.modalonly = true;
+		/* Proxy Rules end */
 
 		o = s.taboption('dashboard', form.Value, 'dashboard_port', _('Listen port'));
 		o.default = '9096';
@@ -741,6 +759,8 @@ return view.extend({
 
 		ss.tab('lan_ip_policy', _('LAN IP Policy'));
 
+		/* These prefilter rules only exist in the TUN routing path (see
+		 * generate_client.uc). */
 		so = ss.taboption('lan_ip_policy', form.ListValue, 'lan_proxy_mode', _('Proxy filter mode'));
 		so.value('disabled', _('Disable'));
 		so.value('listed_only', _('Proxy listed only'));
