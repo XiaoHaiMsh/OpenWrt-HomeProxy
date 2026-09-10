@@ -684,6 +684,7 @@ return view.extend({
 		so.value('main-out', _('Same as main node'));
 		so.value('urltest', _('Separate URLTest'));
 		so.value('direct-out', _('Direct'));
+		so.value('reject-out', _('Reject'));
 		for (let i in proxy_nodes)
 			so.value(i, proxy_nodes[i]);
 		so.default = 'main-out';

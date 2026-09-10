@@ -1399,6 +1399,10 @@ msgstr "每 %s 秒刷新。"
 msgid "Region ID"
 msgstr "区域 ID"
 
+#: htdocs/luci-static/resources/view/homeproxy/client.js:687
+msgid "Reject"
+msgstr "拒绝"
+
 #: htdocs/luci-static/resources/view/homeproxy/node.js:1593
 msgid "Remote"
 msgstr "远程"

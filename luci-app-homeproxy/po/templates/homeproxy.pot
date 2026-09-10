@@ -1463,6 +1463,10 @@ msgstr ""
 msgid "Region ID"
 msgstr ""
 
+#: htdocs/luci-static/resources/view/homeproxy/client.js:687
+msgid "Reject"
+msgstr ""
+
 #: htdocs/luci-static/resources/view/homeproxy/node.js:1593
 msgid "Remote"
 msgstr ""

@@ -857,6 +857,8 @@ if (!isEmpty(main_node)) {
 				effective_outbound = 'main-out';
 			} else if (node === 'direct-out') {
 				effective_outbound = 'direct-out';
+			} else if (node === 'reject-out') {
+				effective_outbound = 'block-out';
 			} else if (node === 'urltest') {
 				const rule_urltest_nodes = valid_node_list(cfg.urltest_nodes || []);
 				if (length(rule_urltest_nodes)) {
@@ -885,6 +887,15 @@ if (!isEmpty(main_node)) {
 			 * group, or a specific node) resolves through main-dns — mirrors
 			 * how direct-domain/proxy-domain already pick a resolver above. */
 			const dns_server = (node === 'direct-out') ? (china_dns_enabled ? 'china-dns' : 'default-dns') : 'main-dns';
+			/* Reject: block the DNS query itself too, instead of routing it
+			 * to a resolver — the domain should be entirely unreachable, not
+			 * just resolvable-but-blocked-at-routing. */
+			const push_app_dns_rule = (tags) => {
+				if (node === 'reject-out')
+					push(config.dns.rules, { rule_set: tags, action: 'reject' });
+				else
+					push(config.dns.rules, { rule_set: tags, action: 'route', server: dns_server });
+			};
 
 			if (cfg.source === 'custom') {
 				const custom_mode = cfg.custom_mode || 'url_domain';
@@ -922,11 +933,7 @@ if (!isEmpty(main_node)) {
 								}
 							]
 						});
-					push(config.dns.rules, {
-						rule_set: rs_tag,
-						action: 'route',
-						server: dns_server
-					});
+					push_app_dns_rule(rs_tag);
 					return;
 				}
 
@@ -990,11 +997,7 @@ if (!isEmpty(main_node)) {
 					outbound: effective_outbound
 				});
 				if (length(domain_tags))
-					push(config.dns.rules, {
-						rule_set: domain_tags,
-						action: 'route',
-						server: dns_server
-					});
+					push_app_dns_rule(domain_tags);
 				return;
 			}
 
@@ -1046,11 +1049,7 @@ if (!isEmpty(main_node)) {
 			/* Only the domain (geosite) rule_set is meaningful for a DNS
 			 * query — a geoip set has nothing to match pre-resolution. */
 			if (domain_tag)
-				push(config.dns.rules, {
-					rule_set: domain_tag,
-					action: 'route',
-					server: dns_server
-				});
+				push_app_dns_rule(domain_tag);
 		});
 	}
 
