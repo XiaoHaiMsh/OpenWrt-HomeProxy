@@ -12,7 +12,7 @@ const JOB_NAME = 'core_official';
 const SINGBOX_BIN     = '/usr/bin/sing-box';
 const CORE_BACKUP_DIR = `${HP_DIR}/core-backup`;
 const CORE_BACKUP_BIN = `${CORE_BACKUP_DIR}/sing-box.orig`;
-const CORE_REPO       = 'SagerNet/sing-box';
+const CORE_REPO       = 'shtorm-7/sing-box-extended';
 
 function job_esc(s) {
 	return replace(replace('' + (s ?? ''), '\\', '\\\\'), '"', '\\"');
@@ -120,7 +120,7 @@ function core_cache_paths() {
 		`${RUN_DIR}/cache.db`
 	];
 
-	for (let run_conf in [ `${RUN_DIR}/sing-box-core.json`, `${RUN_DIR}/sing-box-c.json` ]) {
+	for (let run_conf in [ `${RUN_DIR}/sing-box-c.json` ]) {
 		if (!access(run_conf)) continue;
 		let conf;
 		try { conf = json(readfile(run_conf)); } catch (e) { conf = null; }

@@ -211,7 +211,7 @@ export function reconcileUrltestNodes(uci, config, logger) {
 				'Main URLTest group is empty; disabling the client.' :
 				sprintf('Main URLTest group is empty; switching main node to %s.', fallback));
 		}
-	} else if (main_node !== 'nil' && main_node !== 'core_only' && uci.get(config, main_node) !== 'node') {
+	} else if (main_node !== 'nil' && uci.get(config, main_node) !== 'node') {
 		const fallback = fallbackFirstNode();
 		uci.set(config, 'config', 'main_node', fallback);
 		changed = true;
@@ -233,6 +233,24 @@ export function reconcileUrltestNodes(uci, config, logger) {
 		changed = true;
 		log('Main UDP node is gone; falling back to using the main node for UDP.');
 	}
+
+	uci.foreach(config, 'app_rule', (cfg) => {
+		const label = trim(cfg.custom_service_name || '') || cfg.source || cfg['.name'];
+		const node = cfg.node || 'main-out';
+
+		if (node === 'urltest') {
+			const ruleNodes = reconcileList(cfg['.name'], 'urltest_nodes');
+			if (!length(ruleNodes)) {
+				uci.set(config, cfg['.name'], 'node', 'main-out');
+				changed = true;
+				log(sprintf('Proxy Rule "%s" URLTest group is empty; falling back to the main node.', label));
+			}
+		} else if (node !== 'main-out' && node !== 'direct-out' && node !== 'reject-out' && uci.get(config, node) !== 'node') {
+			uci.set(config, cfg['.name'], 'node', 'main-out');
+			changed = true;
+			log(sprintf('Proxy Rule "%s" node is gone; falling back to the main node.', label));
+		}
+	});
 
 	return { changed, removed };
 };

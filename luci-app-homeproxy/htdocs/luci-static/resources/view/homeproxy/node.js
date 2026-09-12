@@ -2,50 +2,12 @@
 'use strict';
 'require form';
 'require fs';
-'require rpc';
 'require uci';
 'require ui';
 'require view';
 
 'require homeproxy as hp';
 'require tools.widgets as widgets';
-
-const callUpdateSubscription = rpc.declare({
-	object: 'luci.homeproxy',
-	method: 'subscription_update',
-	params: ['section_id'],
-	expect: { '': {} }
-});
-
-const callFileWrite = rpc.declare({
-	object: 'file',
-	method: 'write',
-	params: ['path', 'data', 'append', 'mode']
-});
-
-function writeFileChunked(path, data) {
-	data = (data != null) ? String(data) : '';
-
-	const encoder = new TextEncoder();
-	const decoder = new TextDecoder();
-	const chunkSize = 8 * 1024;
-
-	const bytes = encoder.encode(data);
-
-	if (bytes.length <= chunkSize)
-		return callFileWrite(path, data, false, 0o644);
-
-	let promise = Promise.resolve();
-	for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-		const chunkEnd = Math.min(offset + chunkSize, bytes.length);
-		const isLastChunk = chunkEnd === bytes.length;
-		const chunk = decoder.decode(bytes.slice(offset, chunkEnd), { stream: !isLastChunk });
-		const append = offset > 0;
-		promise = promise.then(() => callFileWrite(path, chunk, append, 0o644));
-	}
-
-	return promise;
-}
 
 function allowInsecureConfirm(ev, _section_id, value) {
 	if (value === '1' && !confirm(_('Are you sure to allow insecure?')))
@@ -298,7 +260,9 @@ function parseShareLink(uri, features) {
 				tls_reality_public_key: params.get('pbk') ? decodeURIComponent(params.get('pbk')) : null,
 				tls_reality_short_id: params.get('sid'),
 				tls_utls: features.with_utls ? params.get('fp') : null,
-				vless_flow: ['tls', 'reality'].includes(params.get('security')) ? params.get('flow') : null
+				vless_flow: ['tls', 'reality'].includes(params.get('security')) ? params.get('flow') : null,
+				vless_encryption: (params.get('encryption') && params.get('encryption') !== 'none') ?
+					decodeURIComponent(params.get('encryption')) : null
 			};
 			switch (params.get('type')) {
 			case 'grpc':
@@ -323,6 +287,13 @@ function parseShareLink(uri, features) {
 					config.websocket_early_data = config.ws_path.split('?ed=')[1];
 					config.ws_path = config.ws_path.split('?ed=')[0];
 				}
+				break;
+			case 'xhttp':
+			case 'splithttp':
+				config.transport = 'xhttp';
+				config.xhttp_host = params.get('host') ? decodeURIComponent(params.get('host')) : null;
+				config.xhttp_path = params.get('path') ? decodeURIComponent(params.get('path')) : null;
+				config.xhttp_mode = params.get('mode') || null;
 				break;
 			}
 
@@ -405,27 +376,25 @@ function renderNodeSettings(section, data, features, main_node) {
 	s.modaltitle = L.bind(hp.loadModalTitle, this, _('Node'), _('Add a node'), data[0]);
 	s.sectiontitle = L.bind(hp.loadDefaultLabel, this, data[0]);
 
-	if (main_node !== 'core_only') {
-		o = s.option(form.Button, '_apply', _('Apply'));
-		o.editable = true;
-		o.modalonly = false;
-		o.inputstyle = 'apply';
-		o.inputtitle = function(section_id) {
-			if (main_node == section_id) {
-				this.readonly = true;
-				return _('Applied');
-			} else {
-				this.readonly = false;
-				return _('Apply');
-			}
+	o = s.option(form.Button, '_apply', _('Apply'));
+	o.editable = true;
+	o.modalonly = false;
+	o.inputstyle = 'apply';
+	o.inputtitle = function(section_id) {
+		if (main_node == section_id) {
+			this.readonly = true;
+			return _('Applied');
+		} else {
+			this.readonly = false;
+			return _('Apply');
 		}
-		o.onclick = function(ev, section_id) {
-			uci.set(data[0], 'config', 'main_node', section_id);
+	}
+	o.onclick = function(ev, section_id) {
+		uci.set(data[0], 'config', 'main_node', section_id);
 
-			return this.map.save(null, true).then(() => {
-				ui.changes.apply(true);
-			});
-		}
+		return this.map.save(null, true).then(() => {
+			ui.changes.apply(true);
+		});
 	}
 
 	o = s.option(form.Value, 'label', _('Label'));
@@ -729,6 +698,11 @@ function renderNodeSettings(section, data, features, main_node) {
 	o.depends('type', 'vless');
 	o.modalonly = true;
 
+	o = s.option(form.Value, 'vless_encryption', _('Encryption'),
+		_('Post-quantum VLESS encryption (Xray-core vlessenc). Leave empty to disable (<code>none</code>).'));
+	o.depends('type', 'vless');
+	o.modalonly = true;
+
 	o = s.option(form.Value, 'vmess_alterid', _('Alter ID'),
 		_('Legacy protocol support (VMess MD5 Authentication) is provided for compatibility purposes only, use of alterId > 1 is not recommended.'));
 	o.datatype = 'uinteger';
@@ -766,6 +740,7 @@ function renderNodeSettings(section, data, features, main_node) {
 	o.value('httpupgrade', _('HTTPUpgrade'));
 	o.value('quic', _('QUIC'));
 	o.value('ws', _('WebSocket'));
+	o.value('xhttp', _('XHTTP'));
 	o.depends('type', 'trojan');
 	o.depends('type', 'vless');
 	o.depends('type', 'vmess');
@@ -775,6 +750,8 @@ function renderNodeSettings(section, data, features, main_node) {
 			desc.innerHTML = _('TLS is not enforced. If TLS is not configured, plain HTTP 1.1 is used.');
 		else if (value === 'quic')
 			desc.innerHTML = _('No additional encryption support: It\'s basically duplicate encryption.');
+		else if (value === 'xhttp')
+			desc.innerHTML = _('Xray-core XHTTP transport. Requires a sing-box core with XHTTP support.');
 		else
 			desc.innerHTML = _('No TCP transport, plain HTTP is merged into the HTTP transport.');
 
@@ -863,6 +840,71 @@ function renderNodeSettings(section, data, features, main_node) {
 	o = s.option(form.Value, 'websocket_early_data_header', _('Early data header name'));
 	o.value('Sec-WebSocket-Protocol');
 	o.depends('transport', 'ws');
+	o.modalonly = true;
+
+	o = s.option(form.ListValue, 'xhttp_mode', _('XHTTP mode'));
+	o.value('', _('auto'));
+	o.value('packet-up');
+	o.value('stream-up');
+	o.value('stream-one');
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_host', _('Host'));
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_path', _('Path'));
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_padding_bytes', _('Padding bytes'),
+		_('Range of random padding size, e.g. <code>100-1000</code>.'));
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Flag, 'xhttp_no_grpc_header', _('No gRPC header'),
+		_('Disable the gRPC-style framing header (stream-up/stream-one modes, client only).'));
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_sc_max_each_post_bytes', _('Max bytes per POST'),
+		_('packet-up mode only.'));
+	o.datatype = 'uinteger';
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_sc_min_posts_interval_ms', _('Min POST interval (ms)'),
+		_('packet-up mode only, client side.'));
+	o.datatype = 'uinteger';
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_xmux_max_concurrency', _('Xmux max concurrency'),
+		_('h2/h3 stream concurrency range, e.g. <code>16-32</code>. Client only.'));
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_xmux_max_connections', _('Xmux max connections'),
+		_('Client only.'));
+	o.datatype = 'uinteger';
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_xmux_c_max_reuse_times', _('Xmux max connection reuse times'),
+		_('Client only.'));
+	o.datatype = 'uinteger';
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_xmux_h_max_request_times', _('Xmux max requests per connection'),
+		_('Range, e.g. <code>600-900</code>. Client only.'));
+	o.depends('transport', 'xhttp');
+	o.modalonly = true;
+
+	o = s.option(form.Value, 'xhttp_xmux_h_max_reusable_secs', _('Xmux max connection lifetime (s)'),
+		_('Range, e.g. <code>1800-3000</code>. Client only.'));
+	o.depends('transport', 'xhttp');
 	o.modalonly = true;
 
 	o = s.option(form.ListValue, 'packet_encoding', _('Packet encoding'));
@@ -1158,44 +1200,12 @@ function renderNodeSettings(section, data, features, main_node) {
 	return s;
 }
 
-function genProfileId() {
-	return 'p' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-}
-
-function cleanupOrphanSubscriptionFiles() {
-	const dir = '/etc/homeproxy/custom/.subscriptions';
-
-	return L.resolveDefault(fs.list(dir), []).then((entries) => {
-		const known = {};
-		uci.sections('homeproxy', 'custom_profile', (s) => { if (s.id) known[s.id] = true; });
-
-		const jobs = [];
-		for (let entry of entries) {
-			if (entry.type !== 'file' || !/\.json$/.test(entry.name))
-				continue;
-
-			const section_id = entry.name.slice(0, -5);
-			if (!known[section_id])
-				jobs.push(L.resolveDefault(fs.remove(dir + '/' + entry.name)));
-		}
-
-		return Promise.all(jobs);
-	});
-}
-
 return view.extend({
 	load() {
 		return Promise.all([
 			uci.load('homeproxy'),
 			hp.getBuiltinFeatures()
-		]).then((res) => {
-			return cleanupOrphanSubscriptionFiles().catch(() => {}).then(() => {
-				return L.resolveDefault(fs.list('/etc/homeproxy/custom'), []);
-			}).then((files) => {
-				res.push(files);
-				return res;
-			});
-		});
+		]);
 	},
 
 	handleSaveApply(ev, mode) {
@@ -1478,181 +1488,6 @@ return view.extend({
 
 			return this.map.save(null, true);
 		}
-
-		s.tab('core_config', _('Core Config'));
-
-		o = s.taboption('core_config', form.FileUpload, '_upload_profile', _('Upload Profile'));
-		o.browser = true;
-		o.enable_download = true;
-		o.root_directory = '/etc/homeproxy/custom';
-		o.write = function(section_id, formvalue) {
-			return true;
-		};
-
-		o = s.taboption('core_config', form.SectionValue, '_core_config', form.GridSection, 'custom_profile', _('Subscription'));
-
-		ss = o.subsection;
-		ss.addremove = true;
-		ss.anonymous = true;
-		ss.sortable = true;
-		ss.modaltitle = _('Edit Subscription');
-		ss.remove = function(section_id) {
-			const profile_id = uci.get(data[0], section_id, 'id') || section_id;
-			return L.resolveDefault(fs.remove(`/etc/homeproxy/custom/.subscriptions/${profile_id}.json`), null).then(() => {
-				return form.GridSection.prototype.remove.apply(this, [section_id]);
-			});
-		};
-
-		so = ss.option(form.Value, 'id', _('Internal ID'));
-		so.modalonly = true;
-		so.readonly = true;
-		so.rmempty = false;
-		so.load = function(section_id) {
-			let id = uci.get(data[0], section_id, 'id');
-			if (!id) {
-				id = genProfileId();
-				uci.set(data[0], section_id, 'id', id);
-			}
-			return id;
-		};
-		so.render = function() {
-			return Promise.resolve(form.Value.prototype.render.apply(this, arguments)).then((node) => {
-				if (node && node.style)
-					node.style.display = 'none';
-				return node;
-			});
-		};
-
-		so = ss.option(form.Value, 'label', _('Subscription Name'));
-		so.rmempty = false;
-
-		so = ss.option(form.Value, 'used', _('Used'));
-		so.modalonly = false;
-		so.optional = true;
-		so.readonly = true;
-
-		so = ss.option(form.Value, 'total', _('Total'));
-		so.modalonly = false;
-		so.optional = true;
-		so.readonly = true;
-
-		so = ss.option(form.Value, 'expire', _('Expire At'));
-		so.modalonly = false;
-		so.optional = true;
-		so.readonly = true;
-
-		so = ss.option(form.Value, 'update', _('Update At'));
-		so.modalonly = false;
-		so.optional = true;
-		so.readonly = true;
-
-		so = ss.option(form.Button, '_update_subscription');
-		so.editable = true;
-		so.inputstyle = 'positive';
-		so.inputtitle = _('Update');
-		so.modalonly = false;
-		so.onclick = function(ev, section_id) {
-			const label = uci.get(data[0], section_id, 'label') || section_id;
-			const profile_id = uci.get(data[0], section_id, 'id') || section_id;
-
-			ui.showModal(_('Updating Subscription'), [
-				E('p', { 'class': 'spinning' }, _('Fetching "%s" ...').format(label))
-			]);
-
-			return callUpdateSubscription(profile_id).then((res) => {
-				ui.hideModal();
-				if (!res || res.result !== true) {
-					ui.addNotification(null, E('p', _('Failed to fetch "%s". Check the subscription URL and try again.').format(label)));
-					return;
-				}
-				return location.reload();
-			}).catch((err) => {
-				ui.hideModal();
-				ui.addNotification(null, E('p', _('Failed to fetch core config: %s').format(err)));
-			});
-		};
-
-		so = ss.option(form.Value, 'info_url', _('Subscription Info Url'));
-		so.modalonly = true;
-
-		so = ss.option(form.Value, 'url', _('Subscription Url'));
-		so.modalonly = true;
-		so.rmempty = false;
-
-		so = ss.option(form.Value, 'user_agent', _('User Agent'));
-		so.default = 'sing-box/1.14.0';
-		so.modalonly = true;
-		so.rmempty = false;
-		so.value('sing-box/1.14.0');
-
-		so = ss.option(form.Flag, 'auto_update_enabled', _('Auto Update'));
-		so.default = '0';
-		so.modalonly = true;
-		so.rmempty = false;
-
-		so = ss.option(form.Value, 'auto_update_interval', _('Update Interval (minutes)'));
-		so.default = '1440';
-		so.placeholder = '1440';
-		so.datatype = 'uinteger';
-		so.modalonly = true;
-		so.rmempty = false;
-		so.depends('auto_update_enabled', '1');
-
-		so = ss.option(form.ListValue, 'prefer', _('Prefer'));
-		so.default = 'local';
-		so.rmempty = false;
-		so.modalonly = true;
-		so.value('local', _('Default'));
-		so.value('remote', _('Remote'));
-
-		s.tab('core_config_editor', _('Core Config Editor'));
-
-		let editor_files = [];
-		for (let entry of (data[2] || [])) {
-			if (entry.type === 'file')
-				editor_files.push({
-					path: `/etc/homeproxy/custom/${entry.name}`,
-					title: entry.name
-				});
-		}
-		uci.sections(data[0], 'custom_profile', (sec) => {
-			if (!sec.id)
-				return;
-			editor_files.push({
-				path: `/etc/homeproxy/custom/.subscriptions/${sec.id}.json`,
-				title: _('Subscription: %s').format(sec.label || sec.id)
-			});
-		});
-
-		o = s.taboption('core_config_editor', form.ListValue, '_editor_file', _('Choose File'));
-		o.optional = true;
-		o.rmempty = true;
-		for (let f of editor_files)
-			o.value(f.path, f.title);
-		o.write = function(section_id, formvalue) {
-			return true;
-		};
-		o.onchange = function(ev, section_id, value) {
-			const textopt = m.lookupOption('_editor_content', section_id)[0];
-			if (!value) {
-				textopt.getUIElement(section_id).setValue('');
-				return;
-			}
-			return L.resolveDefault(fs.read_direct(value, 'text'), '').then((content) => {
-				textopt.getUIElement(section_id).setValue(content);
-			});
-		};
-
-		o = s.taboption('core_config_editor', form.TextValue, '_editor_content', _('File Content'));
-		o.rows = 25;
-		o.wrap = false;
-		o.monospace = true;
-		o.write = function(section_id, formvalue) {
-			const path = m.lookupOption('_editor_file', section_id)[0].formvalue(section_id);
-			if (!path)
-				return;
-			return writeFileChunked(path, formvalue);
-		};
 
 		return m.render();
 	}

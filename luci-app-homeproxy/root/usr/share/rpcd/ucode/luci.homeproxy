@@ -54,7 +54,7 @@ function core_cache_paths() {
 		`${RUN_DIR}/cache.db`
 	];
 
-	for (let run_conf in [ `${RUN_DIR}/sing-box-core.json`, `${RUN_DIR}/sing-box-c.json` ]) {
+	for (let run_conf in [ `${RUN_DIR}/sing-box-c.json` ]) {
 		if (!access(run_conf)) continue;
 		let conf;
 		try { conf = json(readfile(run_conf)); } catch (e) { conf = null; }
@@ -145,7 +145,7 @@ function core_fetch_release(repo, channel) {
 }
 
 function core_repo(core) {
-	return 'SagerNet/sing-box';
+	return 'shtorm-7/sing-box-extended';
 }
 
 function core_arch_matches(filename, goarch) {
@@ -598,19 +598,6 @@ const methods = {
 				return { state: 'idle' };
 
 			return job_read(`res_${type}`);
-		}
-	},
-
-	subscription_update: {
-		args: { section_id: 'section_id' },
-		call: function(req) {
-			if (!req.args?.section_id)
-				return { result: false, error: 'missing section_id' };
-
-			const section_id = shellquote(req.args?.section_id);
-			const exit_code = system(`/usr/bin/ucode -S ${HP_DIR}/scripts/update_custom_config.uc ${section_id}`);
-
-			return { result: (exit_code === 0), status: exit_code };
 		}
 	}
 };
