@@ -283,6 +283,27 @@ function xhttp_padding(v) {
 	return (isEmpty(v) || v === '0' || v === '0-0') ? '100-1000' : v;
 }
 
+/* Parses a DynamicList of "Key: Value" lines (as used by the xhttp_headers
+ * field) into a headers object, or null if there's nothing usable. */
+function parseHeaderList(list) {
+	if (isEmpty(list))
+		return null;
+
+	let headers = {};
+	for (let line in list) {
+		let pos = index(line, ':');
+		if (pos < 0)
+			continue;
+
+		let key = trim(substr(line, 0, pos));
+		let val = trim(substr(line, pos + 1));
+		if (!isEmpty(key))
+			headers[key] = val;
+	}
+
+	return length(keys(headers)) ? headers : null;
+}
+
 function generate_outbound(node) {
 	if (type(node) !== 'object' || isEmpty(node))
 		return null;
@@ -380,8 +401,8 @@ function generate_outbound(node) {
 			path: node.http_path || node.ws_path || node.xhttp_path,
 			headers: node.ws_host ? {
 				Host: node.ws_host
-			} : null,
-			method: node.http_method,
+			} : ((node.transport === 'xhttp') ? parseHeaderList(node.xhttp_headers) : null),
+			method: (node.transport === 'xhttp') ? (node.xhttp_method || null) : node.http_method,
 			max_early_data: strToInt(node.websocket_early_data),
 			early_data_header_name: node.websocket_early_data_header,
 			service_name: node.grpc_servicename,
@@ -394,12 +415,37 @@ function generate_outbound(node) {
 			no_grpc_header: (node.transport === 'xhttp') ? strToBool(node.xhttp_no_grpc_header) : null,
 			sc_max_each_post_bytes: (node.transport === 'xhttp') ? strToInt(node.xhttp_sc_max_each_post_bytes) : null,
 			sc_min_posts_interval_ms: (node.transport === 'xhttp') ? strToInt(node.xhttp_sc_min_posts_interval_ms) : null,
+
+			x_padding_obfs_mode: (node.transport === 'xhttp') ? strToBool(node.xhttp_x_padding_obfs_mode) : null,
+			x_padding_placement: (node.transport === 'xhttp') ? (node.xhttp_x_padding_placement || null) : null,
+			x_padding_key: (node.transport === 'xhttp') ? (node.xhttp_x_padding_key || null) : null,
+			x_padding_header: (node.transport === 'xhttp') ? (node.xhttp_x_padding_header || null) : null,
+			x_padding_method: (node.transport === 'xhttp') ? (node.xhttp_x_padding_method || null) : null,
+
+			session_placement: (node.transport === 'xhttp') ? (node.xhttp_session_placement || null) : null,
+			session_key: (node.transport === 'xhttp') ? (node.xhttp_session_key || null) : null,
+			session_id_table: (node.transport === 'xhttp') ? (node.xhttp_session_id_table || null) : null,
+			session_id_length: (node.transport === 'xhttp') ? (node.xhttp_session_id_length || null) : null,
+
+			seq_placement: (node.transport === 'xhttp') ? (node.xhttp_seq_placement || null) : null,
+			seq_key: (node.transport === 'xhttp') ? (node.xhttp_seq_key || null) : null,
+
+			uplink_data_placement: (node.transport === 'xhttp') ? (node.xhttp_uplink_data_placement || null) : null,
+			uplink_data_key: (node.transport === 'xhttp') ? (node.xhttp_uplink_data_key || null) : null,
+			uplink_chunk_size: (node.transport === 'xhttp') ? (node.xhttp_uplink_chunk_size || null) : null,
+
+			download_settings: (node.transport === 'xhttp' && (node.xhttp_download_host || node.xhttp_download_path)) ? {
+				host: node.xhttp_download_host,
+				path: node.xhttp_download_path
+			} : null,
+
 			xmux: (node.transport === 'xhttp') ? {
 				max_concurrency: node.xhttp_xmux_max_concurrency,
 				max_connections: strToInt(node.xhttp_xmux_max_connections),
 				c_max_reuse_times: strToInt(node.xhttp_xmux_c_max_reuse_times),
 				h_max_request_times: node.xhttp_xmux_h_max_request_times,
-				h_max_reusable_secs: node.xhttp_xmux_h_max_reusable_secs
+				h_max_reusable_secs: node.xhttp_xmux_h_max_reusable_secs,
+				h_keep_alive_period: strToInt(node.xhttp_xmux_h_keep_alive_period)
 			} : null
 		} : null,
 		udp_over_tcp: (node.udp_over_tcp === '1') ? {

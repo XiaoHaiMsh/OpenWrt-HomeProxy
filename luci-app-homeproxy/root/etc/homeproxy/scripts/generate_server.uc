@@ -27,6 +27,27 @@ function xhttp_padding(v) {
 	return (isEmpty(v) || v === '0' || v === '0-0') ? '100-1000' : v;
 }
 
+/* Parses a DynamicList of "Key: Value" lines (as used by the xhttp_headers
+ * field) into a headers object, or null if there's nothing usable. */
+function parseHeaderList(list) {
+	if (isEmpty(list))
+		return null;
+
+	let headers = {};
+	for (let line in list) {
+		let pos = index(line, ':');
+		if (pos < 0)
+			continue;
+
+		let key = trim(substr(line, 0, pos));
+		let val = trim(substr(line, pos + 1));
+		if (!isEmpty(key))
+			headers[key] = val;
+	}
+
+	return length(keys(headers)) ? headers : null;
+}
+
 
 const config = {};
 
@@ -167,8 +188,8 @@ uci.foreach(uciconfig, uciserver, (cfg) => {
 			path: cfg.http_path || cfg.ws_path || cfg.xhttp_path,
 			headers: cfg.ws_host ? {
 				Host: cfg.ws_host
-			} : null,
-			method: cfg.http_method,
+			} : ((cfg.transport === 'xhttp') ? parseHeaderList(cfg.xhttp_headers) : null),
+			method: (cfg.transport === 'xhttp') ? (cfg.xhttp_method || null) : cfg.http_method,
 			max_early_data: strToInt(cfg.websocket_early_data),
 			early_data_header_name: cfg.websocket_early_data_header,
 			service_name: cfg.grpc_servicename,
@@ -180,7 +201,29 @@ uci.foreach(uciconfig, uciserver, (cfg) => {
 			no_sse_header: (cfg.transport === 'xhttp') ? strToBool(cfg.xhttp_no_sse_header) : null,
 			sc_max_each_post_bytes: (cfg.transport === 'xhttp') ? strToInt(cfg.xhttp_sc_max_each_post_bytes) : null,
 			sc_max_buffered_posts: (cfg.transport === 'xhttp') ? strToInt(cfg.xhttp_sc_max_buffered_posts) : null,
-			sc_stream_up_server_secs: (cfg.transport === 'xhttp') ? cfg.xhttp_sc_stream_up_server_secs : null
+			sc_stream_up_server_secs: (cfg.transport === 'xhttp') ? cfg.xhttp_sc_stream_up_server_secs : null,
+			server_max_header_bytes: (cfg.transport === 'xhttp') ? strToInt(cfg.xhttp_server_max_header_bytes) : null,
+
+			x_padding_obfs_mode: (cfg.transport === 'xhttp') ? strToBool(cfg.xhttp_x_padding_obfs_mode) : null,
+			x_padding_placement: (cfg.transport === 'xhttp') ? (cfg.xhttp_x_padding_placement || null) : null,
+			x_padding_key: (cfg.transport === 'xhttp') ? (cfg.xhttp_x_padding_key || null) : null,
+			x_padding_header: (cfg.transport === 'xhttp') ? (cfg.xhttp_x_padding_header || null) : null,
+			x_padding_method: (cfg.transport === 'xhttp') ? (cfg.xhttp_x_padding_method || null) : null,
+
+			session_placement: (cfg.transport === 'xhttp') ? (cfg.xhttp_session_placement || null) : null,
+			session_key: (cfg.transport === 'xhttp') ? (cfg.xhttp_session_key || null) : null,
+
+			seq_placement: (cfg.transport === 'xhttp') ? (cfg.xhttp_seq_placement || null) : null,
+			seq_key: (cfg.transport === 'xhttp') ? (cfg.xhttp_seq_key || null) : null,
+
+			uplink_data_placement: (cfg.transport === 'xhttp') ? (cfg.xhttp_uplink_data_placement || null) : null,
+			uplink_data_key: (cfg.transport === 'xhttp') ? (cfg.xhttp_uplink_data_key || null) : null,
+			uplink_chunk_size: (cfg.transport === 'xhttp') ? (cfg.xhttp_uplink_chunk_size || null) : null,
+
+			download_settings: (cfg.transport === 'xhttp' && (cfg.xhttp_download_host || cfg.xhttp_download_path)) ? {
+				host: cfg.xhttp_download_host,
+				path: cfg.xhttp_download_path
+			} : null
 		} : null
 	});
 });

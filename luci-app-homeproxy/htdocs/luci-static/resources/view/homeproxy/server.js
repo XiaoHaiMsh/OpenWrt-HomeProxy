@@ -498,6 +498,104 @@ return view.extend({
 		o.depends('transport', 'xhttp');
 		o.modalonly = true;
 
+		o = s.option(form.Value, 'xhttp_method', _('Uplink method'),
+			_('HTTP method expected for uplink POST requests. Defaults to <code>POST</code>.'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.DynamicList, 'xhttp_headers', _('Headers'),
+			_('Extra HTTP request/response headers, one <code>Key: Value</code> pair per line.'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.Value, 'xhttp_server_max_header_bytes', _('Max header bytes'),
+			_('Limits the size of HTTP request headers accepted by the server. Default <code>8192</code>.'));
+		o.datatype = 'uinteger';
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.Value, 'xhttp_download_host', _('Download host'),
+			_('Host expected on the separate stream-down download leg, if different from the main Host.'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.Value, 'xhttp_download_path', _('Download path'),
+			_('Path expected on the separate stream-down download leg, if different from the main Path.'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.Flag, 'xhttp_x_padding_obfs_mode', _('Padding obfuscation mode'),
+			_('Must match the client. When disabled (default), padding is expected via Referer-with-query.'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.ListValue, 'xhttp_x_padding_placement', _('Padding placement'));
+		o.value('query', _('query'));
+		o.value('header', _('header'));
+		o.value('cookie', _('cookie'));
+		o.depends({'transport': 'xhttp', 'xhttp_x_padding_obfs_mode': '1'});
+		o.modalonly = true;
+
+		o = s.option(form.Value, 'xhttp_x_padding_key', _('Padding key'),
+			_('Header/cookie/query name for padding. Default <code>x_padding</code>.'));
+		o.depends({'transport': 'xhttp', 'xhttp_x_padding_obfs_mode': '1'});
+		o.modalonly = true;
+
+		o = s.option(form.Value, 'xhttp_x_padding_header', _('Padding header'),
+			_('Header name used for header placement. Default <code>X-Padding</code>.'));
+		o.depends({'transport': 'xhttp', 'xhttp_x_padding_obfs_mode': '1'});
+		o.modalonly = true;
+
+		o = s.option(form.ListValue, 'xhttp_x_padding_method', _('Padding method'));
+		o.value('repeat-x', _('repeat-x'));
+		o.value('tokenish', _('tokenish'));
+		o.depends({'transport': 'xhttp', 'xhttp_x_padding_obfs_mode': '1'});
+		o.modalonly = true;
+
+		o = s.option(form.ListValue, 'xhttp_session_placement', _('Session ID placement'));
+		o.value('path', _('path'));
+		o.value('query', _('query'));
+		o.value('header', _('header'));
+		o.value('cookie', _('cookie'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.Value, 'xhttp_session_key', _('Session ID key'),
+			_('Header/cookie/query name; default depends on placement.'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.ListValue, 'xhttp_seq_placement', _('Sequence placement'));
+		o.value('path', _('path'));
+		o.value('query', _('query'));
+		o.value('header', _('header'));
+		o.value('cookie', _('cookie'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.Value, 'xhttp_seq_key', _('Sequence key'),
+			_('Header/cookie/query name; default depends on placement.'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.ListValue, 'xhttp_uplink_data_placement', _('Uplink data placement'));
+		o.value('body', _('body (default)'));
+		o.value('header', _('header'));
+		o.value('cookie', _('cookie'));
+		o.value('auto', _('auto'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.Value, 'xhttp_uplink_data_key', _('Uplink data key'),
+			_('Header/cookie name prefix used for header/cookie placement.'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
+		o = s.option(form.Value, 'xhttp_uplink_chunk_size', _('Uplink chunk size range'),
+			_('Range, e.g. <code>100000-200000</code>.'));
+		o.depends('transport', 'xhttp');
+		o.modalonly = true;
+
 		o = s.option(form.Flag, 'xhttp_no_sse_header', _('No SSE header'),
 			_('Disable the server-sent-events framing header (server only).'));
 		o.depends('transport', 'xhttp');
